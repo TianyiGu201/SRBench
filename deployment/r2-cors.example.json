@@ -1,0 +1,8 @@
+[
+  {
+    "AllowedOrigins": ["https://<your-pages-project>.pages.dev"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": [],
+    "MaxAgeSeconds": 3600
+  }
+]
