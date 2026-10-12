@@ -60,8 +60,13 @@ bash scripts/upload_r2.sh \
 ```
 
 The script uploads `data_root` first and `site` second, excludes `.bak` backup
-files, never deletes remote objects, and compares uploaded file sizes. The
-current payload is 20,969 objects and 28.26 GB before upload.
+files, never deletes remote objects, and compares uploaded file sizes. This is
+the **uncompressed baseline**: 20,969 objects and 28.26 GB. If the goal is to
+stay within R2 Standard's 10 GB-month free storage allowance, read
+[`compression-assessment.md`](compression-assessment.md) before using
+`--apply`; the optimized 9.47 GB payload needs separate staging and upload
+metadata validation. The baseline script does not produce that optimized
+payload.
 
 ## 3. Choose access mode
 
