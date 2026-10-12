@@ -60,7 +60,7 @@ try {
     const canvases = [...document.querySelectorAll('canvas')];
     return canvases.length === 6 && canvases.every(canvas => canvas.width > 0);
   }, null, {timeout: 60000});
-  console.log(`PASS large arrays: 6 canvases rendered in ${Date.now() - largeStart} ms on local loopback`);
+  console.log(`PASS large arrays: 6 canvases rendered in ${Date.now() - largeStart} ms at ${site}`);
 
   await page.goto(`${site}#/out-of-sample`);
   await page.locator('rect.region-cell').first().waitFor();

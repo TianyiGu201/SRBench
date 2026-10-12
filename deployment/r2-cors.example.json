@@ -1,6 +1,6 @@
 [
   {
-    "AllowedOrigins": ["https://<your-pages-project>.pages.dev"],
+    "AllowedOrigins": ["https://srbench.pages.dev", "https://tianyigu201.github.io"],
     "AllowedMethods": ["GET", "HEAD"],
     "AllowedHeaders": [],
     "MaxAgeSeconds": 3600

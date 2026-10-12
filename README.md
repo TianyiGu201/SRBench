@@ -1,31 +1,22 @@
-# SRBench private deployment test
+# SRBench Explorer
 
-This repository contains the spatial transcriptomics comparison website source.
-The 27 GiB research dataset and the generated static data catalog stay outside
-GitHub. The frontend can read those files from a separate data origin when
-`VITE_DATA_BASE_URL` is set at build time.
+This repository contains the SRBench spatial transcriptomics comparison
+website. The frontend is a Vite/React application in `front/`. The research
+data is stored separately in Cloudflare R2; no dataset or R2 credential is
+committed here.
 
-## Private GitHub test
+## Public websites
 
-The `Private static build` GitHub Actions workflow checks the TypeScript source,
-builds the frontend with `/SRBench/` as its base path, and stores the static
-output as a private workflow artifact for seven days. The artifact points at
-`http://127.0.0.1:7801` so it can be tested against the local data server via
-SSH port forwarding. It is not a public deployment. GitHub Pages is not enabled.
+- GitHub Pages: `https://tianyigu201.github.io/SRBench/` (published from
+  `.github/workflows/pages.yml` after Pages is enabled for this repository).
+- Cloudflare Pages: `https://srbench.pages.dev/` (existing deployment).
 
-For the original local two-origin browser test and data export instructions,
-see [README.pages-r2-local.md](README.pages-r2-local.md).
+Both frontends read the same public R2 objects. The GitHub Pages workflow
+builds with `/SRBench/` as the base path and only uploads `front/dist`. It
+requires the repository to be public on GitHub Free and **Settings > Pages >
+Build and deployment > Source** to be set to **GitHub Actions**. The R2 CORS
+policy must allow `https://tianyigu201.github.io` as an additional origin.
 
-## Production configuration
-
-For an eventual public Pages plus R2 deployment, build `front/` with:
-
-```bash
-npm ci
-VITE_BASE_PATH=/SRBench/ VITE_DATA_BASE_URL=https://<data-domain> npm run build
-```
-
-The data origin must serve matching `/data_root/` and `/site/` paths and allow
-the website origin through CORS. A public static deployment will make the site
-and any publicly served data URLs accessible to others; a private hosted site
-requires an access-control layer.
+See [deployment/README.md](deployment/README.md) for deployment and data
+validation details. See [README.pages-r2-local.md](README.pages-r2-local.md)
+for the original local preview workflow.

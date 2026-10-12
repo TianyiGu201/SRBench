@@ -1,9 +1,10 @@
-# Private GitHub source + Cloudflare Pages frontend + R2 data
+# GitHub Pages frontend + Cloudflare R2 data
 
-This is the deployment path for a private `TianyiGu201/SRBench` repository on
-GitHub Free. Cloudflare Pages can build from a private GitHub repository and
-publish the resulting frontend publicly. GitHub Pages from that private
-repository would require GitHub Pro or another eligible paid plan.
+`TianyiGu201/SRBench` can publish its frontend at
+`https://tianyigu201.github.io/SRBench/` once the repository is public and
+GitHub Pages is enabled. The existing Cloudflare Pages site at
+`https://srbench.pages.dev/` can remain available. Both sites use the same
+public R2 bucket; no research data is committed to GitHub.
 
 The static adapter already maps website requests to two bucket prefixes:
 
@@ -98,21 +99,20 @@ Public Development URL in **R2 > bucket > Settings**, and copy its
 `https://...r2.dev` URL. It is rate limited and has no CDN caching, so use a
 custom domain such as `https://data.example.org` for production. A custom
 domain requires a domain you control in Cloudflare. Set the bucket CORS policy
-from `r2-cors.example.json`, replacing the Pages origin with the actual
-`https://<your-pages-project>.pages.dev` hostname. The origin contains only
-the scheme and hostname; add a second origin if the frontend later uses a
-custom domain. In the bucket's **Settings > CORS Policy > Add CORS policy >
-JSON** editor, paste the edited policy. The example file uses the dashboard
-JSON format. Check both public access and CORS, for example:
+from `r2-cors.example.json`. It lists both current frontend origins:
+`https://srbench.pages.dev` and `https://tianyigu201.github.io`. The GitHub
+origin does not include `/SRBench/`; CORS origins contain only the scheme and
+hostname. In the bucket's **Settings > CORS Policy > Add CORS policy > JSON**
+editor, paste the policy. Check public access and CORS, for example:
 
 ```bash
 curl -I https://<your-r2-public-host>/site/datasets.json.gz
-curl -I -H 'Origin: https://<your-pages-project>.pages.dev' \
+curl -I -H 'Origin: https://tianyigu201.github.io' \
   https://<your-r2-public-host>/site/datasets.json.gz
 ```
 
 The second response must include
-`Access-Control-Allow-Origin: https://<your-pages-project>.pages.dev`.
+`Access-Control-Allow-Origin: https://tianyigu201.github.io`.
 Configure caching for the data custom domain after correctness checks. The
 `.json.gz` objects are ordinary gzip files, so set their cache rules based on
 the public data URL and verify the response headers. On the Free plan, files
@@ -124,45 +124,35 @@ not meet this requirement. Use a frontend host with access control and a
 private R2 bucket behind an authenticated Worker or equivalent proxy. The
 current static frontend would then need an authenticated data transport.
 
-## 5. Publish the frontend from the private GitHub repository
+## 5. Publish the frontend with GitHub Pages
 
-In Cloudflare, select **Workers & Pages > Create application > Pages > Connect
-to Git**, grant the Cloudflare Pages GitHub app access to `TianyiGu201/SRBench`,
-and select that private repository. Configure:
+After checking the source and Git history for credentials, change the
+`TianyiGu201/SRBench` repository visibility to **Public** in **Settings >
+General > Danger Zone > Change repository visibility**. GitHub Free cannot
+publish Pages directly from a private repository. The repository includes
+website source and deployment scripts, but no R2 credentials or research data.
 
-| Setting | Value |
-| --- | --- |
-| Production branch | `main` |
-| Root directory | `front` |
-| Build command | `npm run build` |
-| Build output directory | `dist` |
-| Environment variable `VITE_BASE_PATH` | `/` |
-| Environment variable `VITE_DATA_BASE_URL` | Public R2 URL without trailing slash |
-| Environment variable `VITE_DATA_COMPRESSION` | `gzip` |
+In **Settings > Pages > Build and deployment**, set **Source** to **GitHub
+Actions**. The committed `.github/workflows/pages.yml` installs frontend
+dependencies, checks TypeScript, builds with `VITE_BASE_PATH=/SRBench/`, the
+public R2 URL, and `VITE_DATA_COMPRESSION=gzip`, then uploads only `front/dist`
+to GitHub Pages. Trigger **Actions > Deploy SRBench to GitHub Pages > Run
+workflow** once if changing visibility does not start a deployment. The
+expected URL is `https://tianyigu201.github.io/SRBench/`.
 
-The frontend uses hash routing, so URLs under `/#/` work on Pages without a
-rewrite rule. Set the build variables before the first deployment. The R2 URL
-is public browser configuration, not a secret. Cloudflare Pages will give the
-site a `*.pages.dev` address; use that exact origin in the R2 CORS policy.
+Before the browser test, add `https://tianyigu201.github.io` to R2 CORS while
+keeping the existing `https://srbench.pages.dev` origin. The frontend uses
+hash routing, so links under `/#/` require no rewrite rule. Verify the dataset
+list, an NPY image, out-of-sample regions, CSV download, and TIFF download.
+The R2 `r2.dev` hostname is suitable for testing; use an R2 custom domain for
+production caching and to avoid development-endpoint rate limits.
 
-If the project name changes during setup, update the CORS origin. After
-deployment, verify the dataset list, an NPY image, an out-of-sample region, a
-CSV download, and a raw TIFF link from a browser outside the server. Measure
-one cold load and one repeat load; local loopback timings do not represent
-public network speed.
+## Existing Cloudflare Pages deployment
 
-## Optional: GitHub Pages if the GitHub plan changes
-
-The deploy workflow is staged at `pages-public.yml.example` and is not active.
-If the account is upgraded to GitHub Pro or another eligible plan, move it to
-`.github/workflows/pages-public.yml`, create the GitHub Actions repository
-variable `R2_PUBLIC_BASE_URL` with the HTTPS data origin (no trailing slash),
-and set **Settings > Pages > Build and deployment > Source** to
-**GitHub Actions**. The workflow builds with `/SRBench/` as its base path and
-deploys only `front/dist`.
-
-Alternatively, a separate public repository containing only built assets can
-serve GitHub Pages on GitHub Free while `SRBench` stays private.
+`https://srbench.pages.dev/` is already connected to the same GitHub repository
+and R2 bucket. Its build root is `front`, command is `npm run build`, output is
+`dist`, and build variables are `VITE_BASE_PATH=/`, the same public R2 URL,
+and `VITE_DATA_COMPRESSION=gzip`. Keep its CORS origin while both sites run.
 
 ## Cost estimate for this payload
 
@@ -170,7 +160,8 @@ The baseline upload scope is 28.26 GB, while the verified optimized target is
 about 9.47 GB. If this bucket has no other objects, the optimized payload fits
 R2 Standard's 10 GB-month free storage allowance with about 0.53 GB of room.
 The first upload is far below the included one million Class A operations;
-10 million Class B reads
-are included monthly. Standard retrieval and outbound transfer have no R2
-charge. Pages Free includes 500 builds/month. A custom domain, if purchased,
-has a separate registration cost. These are estimates, not a measured bill.
+10 million Class B reads are included monthly. Standard retrieval and outbound
+transfer have no R2 charge. GitHub Pages is available from this public
+repository on GitHub Free, subject to GitHub Pages usage limits. Cloudflare
+Pages Free includes 500 builds/month. A custom domain, if purchased, has a
+separate registration cost. These are estimates, not a measured bill.

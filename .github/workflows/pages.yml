@@ -1,6 +1,8 @@
-name: Publish public Pages site
+name: Deploy SRBench to GitHub Pages
 
-'on':
+on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -13,10 +15,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
+    if: ${{ github.event.repository.private == false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -27,25 +27,30 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: front/package-lock.json
-      - name: Check data URL
-        env:
-          DATA_URL: ${{ vars.R2_PUBLIC_BASE_URL }}
-        run: |
-          test -n "$DATA_URL"
-          case "$DATA_URL" in https://*) ;; *) exit 1 ;; esac
-      - name: Install and build
+      - name: Install dependencies
+        working-directory: front
+        run: npm ci
+      - name: Check TypeScript
+        working-directory: front
+        run: npx tsc --noEmit
+      - name: Build frontend for GitHub Pages
         working-directory: front
         env:
           VITE_BASE_PATH: /SRBench/
-          VITE_DATA_BASE_URL: ${{ vars.R2_PUBLIC_BASE_URL }}
+          VITE_DATA_BASE_URL: https://pub-8360a1ebefc848bdb9ca66b5f1502de3.r2.dev
           VITE_DATA_COMPRESSION: gzip
-        run: |
-          npm ci
-          npx tsc --noEmit
-          npm run build
+        run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v5
         with:
           path: front/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v5
