@@ -36,12 +36,19 @@ First activate the R2 subscription in Cloudflare if the dashboard requests it;
 the account can remain on the Free plan, but storage beyond the monthly free
 allowance is billed. Create a **Standard** storage bucket such as
 `srbench-data`. Leave public access disabled while uploading and checking
-files. Create a bucket-scoped R2 API key
-with object read/write permission. Configure the server's installed `rclone`
+files. In **R2 > Overview > API Tokens > Manage**, create a bucket-scoped
+**Object Read & Write** API token. Configure the server's installed `rclone`
 with S3 provider `Cloudflare`, region `auto`, the R2 account endpoint
 `https://<account-id>.r2.cloudflarestorage.com`, and the API key. Keep the
 credentials in the server's private rclone configuration; do not paste them
 into GitHub or browser environment variables.
+
+Run `rclone config` on the server, create a new remote named `r2`, choose
+**Amazon S3 Compliant Storage Providers** and **Cloudflare R2**, then enter
+the Access Key ID, Secret Access Key, and endpoint shown by Cloudflare. Use
+`rclone listremotes` to confirm that `r2:` appears. If you used an object-only
+token and rclone reports a bucket-check permission error, set
+`no_check_bucket = true` for that remote.
 
 Check the upload plan, then apply it from this repository root:
 
@@ -66,8 +73,9 @@ domain requires a domain you control in Cloudflare. Set the bucket CORS policy
 from `r2-cors.example.json`, replacing the Pages origin with the actual
 `https://<your-pages-project>.pages.dev` hostname. The origin contains only
 the scheme and hostname; add a second origin if the frontend later uses a
-custom domain.
-Check both public access and CORS, for example:
+custom domain. In the bucket's **Settings > CORS Policy > Add CORS policy >
+JSON** editor, paste the edited policy. The example file uses the dashboard
+JSON format. Check both public access and CORS, for example:
 
 ```bash
 curl -I https://<your-r2-public-host>/site/datasets.json
