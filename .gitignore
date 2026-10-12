@@ -1,0 +1,11 @@
+/.venv-server/
+/venv/
+/front/node_modules/
+/front/dist/
+**/__pycache__/
+*.py[cod]
+.env
+.env.*
+!/front/.env.example
+/data_root/
+/web_data/
