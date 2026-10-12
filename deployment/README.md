@@ -9,8 +9,9 @@ The static adapter already maps website requests to two bucket prefixes:
 
 | Website request | R2 object key |
 | --- | --- |
-| Dataset catalog and generated summaries | `site/...` |
-| JPG, TIFF, NPY, CSV and original metadata | `data_root/...` |
+| Dataset catalog and generated summaries | `site/...*.json.gz` |
+| NPY and CSV used by the browser | `data_root/...*.npy.gz`, `data_root/...*.csv.gz` |
+| JPEG previews and lossless TIFF downloads | `data_root/...*.jpg`, `data_root/...*.tiff` |
 
 The data bucket is separate from GitHub. No R2 access key belongs in this
 repository or in the frontend build: `VITE_DATA_BASE_URL` is a public URL
@@ -30,7 +31,29 @@ repeat CSVs are absent in the source data and appear as empty results, matching
 the original API. If source data changes, rerun `scripts/export_static_data.py`
 before the audit and upload.
 
-## 2. Create and fill an R2 bucket
+## 2. Build the optimized payload on this server
+
+The frontend uses `VITE_DATA_COMPRESSION=gzip` to fetch `.gz` objects and
+decompress them in the browser. The `.gz` objects are uploaded as ordinary
+files **without** HTTP `Content-Encoding`; Cloudflare may transparently
+expand objects that use that header. The source `web_data` is not modified.
+
+```bash
+python3 scripts/build_optimized_payload.py build \
+  --web-data /mnt/disk30/gty/project/super_resolution/web_data \
+  --output /mnt/disk30/gty/project/super_resolution/web_data/r2_payload_gzip_v1
+python3 scripts/build_optimized_payload.py verify \
+  --web-data /mnt/disk30/gty/project/super_resolution/web_data \
+  --output /mnt/disk30/gty/project/super_resolution/web_data/r2_payload_gzip_v1
+```
+
+The builder refuses to write into an existing output directory. The verifier
+checks every gzip round trip, every TIFF's pixel values and important tags,
+all JPEG copies, and the full published file inventory. The measured target
+is 20,732 files and about 9.47 GB. See
+[`compression-assessment.md`](compression-assessment.md).
+
+## 3. Create and fill an R2 bucket
 
 First activate the R2 subscription in Cloudflare if the dashboard requests it;
 the account can remain on the Free plan, but storage beyond the monthly free
@@ -50,25 +73,25 @@ the Access Key ID, Secret Access Key, and endpoint shown by Cloudflare. Use
 token and rclone reports a bucket-check permission error, set
 `no_check_bucket = true` for that remote.
 
-Check the upload plan, then apply it from this repository root:
+Check the **optimized** upload plan, then apply it from this repository root:
 
 ```bash
-bash scripts/upload_r2.sh \
-  /mnt/disk30/gty/project/super_resolution/web_data r2:srbench-data
-bash scripts/upload_r2.sh \
-  /mnt/disk30/gty/project/super_resolution/web_data r2:srbench-data --apply
+bash scripts/upload_r2_optimized.sh \
+  /mnt/disk30/gty/project/super_resolution/web_data \
+  /mnt/disk30/gty/project/super_resolution/web_data/r2_payload_gzip_v1 \
+  r2:srbench-data
+bash scripts/upload_r2_optimized.sh \
+  /mnt/disk30/gty/project/super_resolution/web_data \
+  /mnt/disk30/gty/project/super_resolution/web_data/r2_payload_gzip_v1 \
+  r2:srbench-data --apply
 ```
 
-The script uploads `data_root` first and `site` second, excludes `.bak` backup
-files, never deletes remote objects, and compares uploaded file sizes. This is
-the **uncompressed baseline**: 20,969 objects and 28.26 GB. If the goal is to
-stay within R2 Standard's 10 GB-month free storage allowance, read
-[`compression-assessment.md`](compression-assessment.md) before using
-`--apply`; the optimized 9.47 GB payload needs separate staging and upload
-metadata validation. The baseline script does not produce that optimized
-payload.
+The script verifies local staged bytes, uploads `data_root` then `site`, never
+deletes remote objects, and compares staged and remote file sizes. Use an
+empty bucket to avoid paying for duplicate original and compressed objects.
+The older `upload_r2.sh` is retained only as an uncompressed baseline.
 
-## 3. Choose access mode
+## 4. Choose access mode
 
 **Public website and data:** For the first end-to-end test, enable the bucket's
 Public Development URL in **R2 > bucket > Settings**, and copy its
@@ -83,23 +106,25 @@ JSON** editor, paste the edited policy. The example file uses the dashboard
 JSON format. Check both public access and CORS, for example:
 
 ```bash
-curl -I https://<your-r2-public-host>/site/datasets.json
+curl -I https://<your-r2-public-host>/site/datasets.json.gz
 curl -I -H 'Origin: https://<your-pages-project>.pages.dev' \
-  https://<your-r2-public-host>/site/datasets.json
+  https://<your-r2-public-host>/site/datasets.json.gz
 ```
 
 The second response must include
 `Access-Control-Allow-Origin: https://<your-pages-project>.pages.dev`.
-Configure caching for the data custom domain after correctness checks. JSON
-is not cached by default. On the Free plan, files above 512 MB cannot be
-cached by Cloudflare, so the largest TIFFs will remain cold reads.
+Configure caching for the data custom domain after correctness checks. The
+`.json.gz` objects are ordinary gzip files, so set their cache rules based on
+the public data URL and verify the response headers. On the Free plan, files
+above 512 MB cannot be cached by Cloudflare, so the largest TIFFs will remain
+cold reads.
 
 **Private website or data:** Ordinary GitHub Pages and a public R2 domain do
 not meet this requirement. Use a frontend host with access control and a
 private R2 bucket behind an authenticated Worker or equivalent proxy. The
 current static frontend would then need an authenticated data transport.
 
-## 4. Publish the frontend from the private GitHub repository
+## 5. Publish the frontend from the private GitHub repository
 
 In Cloudflare, select **Workers & Pages > Create application > Pages > Connect
 to Git**, grant the Cloudflare Pages GitHub app access to `TianyiGu201/SRBench`,
@@ -113,6 +138,7 @@ and select that private repository. Configure:
 | Build output directory | `dist` |
 | Environment variable `VITE_BASE_PATH` | `/` |
 | Environment variable `VITE_DATA_BASE_URL` | Public R2 URL without trailing slash |
+| Environment variable `VITE_DATA_COMPRESSION` | `gzip` |
 
 The frontend uses hash routing, so URLs under `/#/` work on Pages without a
 rewrite rule. Set the build variables before the first deployment. The R2 URL
@@ -140,10 +166,11 @@ serve GitHub Pages on GitHub Free while `SRBench` stays private.
 
 ## Cost estimate for this payload
 
-The current upload scope is 28.26 GB. At the current R2 Standard price of
-US$0.015 per GB-month with 10 GB-month included, full-month storage is about
-US$0.29/month before billing rounding or other usage. The first upload is far
-below the included one million Class A operations; 10 million Class B reads
+The baseline upload scope is 28.26 GB, while the verified optimized target is
+about 9.47 GB. If this bucket has no other objects, the optimized payload fits
+R2 Standard's 10 GB-month free storage allowance with about 0.53 GB of room.
+The first upload is far below the included one million Class A operations;
+10 million Class B reads
 are included monthly. Standard retrieval and outbound transfer have no R2
 charge. Pages Free includes 500 builds/month. A custom domain, if purchased,
 has a separate registration cost. These are estimates, not a measured bill.

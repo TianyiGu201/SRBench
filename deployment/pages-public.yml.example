@@ -38,6 +38,7 @@ jobs:
         env:
           VITE_BASE_PATH: /SRBench/
           VITE_DATA_BASE_URL: ${{ vars.R2_PUBLIC_BASE_URL }}
+          VITE_DATA_COMPRESSION: gzip
         run: |
           npm ci
           npx tsc --noEmit

@@ -5,7 +5,7 @@ import {join} from 'node:path';
 
 const require = createRequire(join(process.env.PLAYWRIGHT_ROOT, 'package.json'));
 const {chromium} = require('playwright');
-const site = 'http://127.0.0.1:7800/spatial-transcriptomics-viz/';
+const site = process.env.SITE_URL || 'http://127.0.0.1:7800/spatial-transcriptomics-viz/';
 const browser = await chromium.launch({headless: true, args: ['--no-proxy-server']});
 const page = await browser.newPage({viewport: {width: 1440, height: 900}, acceptDownloads: true});
 const errors = [];
@@ -19,6 +19,19 @@ try {
   await page.getByRole('button', {name: 'Metadata'}).first().click();
   await page.getByRole('heading', {name: 'Dataset Metadata'}).waitFor();
   console.log('PASS dataset overview: 13 datasets and metadata');
+  await page.mouse.click(5, 5);
+  await page.getByRole('heading', {name: 'Dataset Metadata'}).waitFor({state: 'hidden'});
+
+  await page.evaluate(() => {
+    window.__openedHE = '';
+    window.open = url => {window.__openedHE = String(url); return null;};
+  });
+  await page.getByRole('button', {name: 'HE Image'}).first().click();
+  const heUrl = await page.evaluate(() => window.__openedHE);
+  assert.match(heUrl, /\/data_root\/[^/]+\/he-raw\.tiff$/);
+  const heResponse = await page.request.head(heUrl);
+  assert.equal(heResponse.status(), 200);
+  console.log('PASS lossless HE TIFF download URL');
 
   await page.goto(`${site}#/metric-vis`);
   await page.locator('select').first().selectOption('ViHD_mmu_kidney_h');
@@ -85,6 +98,13 @@ try {
   console.log('PASS study design: markdown content');
   assert.deepEqual(errors, []);
   console.log('PASS browser console: no errors');
+} catch (error) {
+  console.log('SMOKE DIAGNOSTIC', {
+    url: page.url(),
+    text: (await page.locator('body').innerText()).slice(0, 1000),
+    errors,
+  });
+  throw error;
 } finally {
   await browser.close();
 }

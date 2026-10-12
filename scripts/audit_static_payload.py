@@ -9,21 +9,15 @@ def read_json(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--web-data", type=Path, required=True)
-    args = parser.parse_args()
-    root = args.web_data.resolve()
+def collect_references(root: Path) -> tuple[set[Path], set[Path], int, int, int]:
+    """Return required and optional source paths used by the static frontend."""
     data_root = root / "data_root"
     site_root = root / "site"
-    missing: set[Path] = set()
     optional_missing: set[Path] = set()
     referenced: set[Path] = set()
 
     def require(path: Path) -> None:
         referenced.add(path)
-        if not path.is_file():
-            missing.add(path)
 
     def optional(path: Path) -> None:
         referenced.add(path)
@@ -74,10 +68,22 @@ def main() -> None:
                         optional(path)
                     diff_count += 1
 
+    return referenced - optional_missing, optional_missing, len(datasets), oos_count, diff_count
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--web-data", type=Path, required=True)
+    args = parser.parse_args()
+    root = args.web_data.resolve()
+    data_root = root / "data_root"
+    site_root = root / "site"
+    referenced, optional_missing, dataset_count, oos_count, diff_count = collect_references(root)
+    missing = {path for path in referenced if not path.is_file()}
     upload_files = [p for folder in (data_root, site_root) for p in folder.rglob("*") if p.is_file() and p.suffix != ".bak"]
     upload_bytes = sum(p.stat().st_size for p in upload_files)
-    print(f"Datasets: {len(datasets)}")
-    print(f"Referenced files: {len(referenced)}; OOS regions: {oos_count}; replicate CSVs: {diff_count}")
+    print(f"Datasets: {dataset_count}")
+    print(f"Referenced files: {len(referenced) + len(optional_missing)}; OOS regions: {oos_count}; replicate CSVs: {diff_count}")
     print(f"Upload scope excluding .bak: {len(upload_files)} files, {upload_bytes / 1_000_000_000:.2f} GB")
     print(f"Optional repeat CSVs absent in source: {len(optional_missing)} (shown as empty results)")
     if missing:

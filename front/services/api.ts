@@ -4,10 +4,26 @@ import * as d3 from 'd3';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const DATA_BASE_URL = (import.meta.env.VITE_DATA_BASE_URL || '').replace(/\/$/, '');
 export const isStaticDataMode = Boolean(DATA_BASE_URL);
+export const isCompressedDataMode = isStaticDataMode && import.meta.env.VITE_DATA_COMPRESSION === 'gzip';
 const dataUrl = (path: string) => `${DATA_BASE_URL}${path}`;
+const staticFileUrl = (path: string) => dataUrl(`${path}${isCompressedDataMode ? '.gz' : ''}`);
+
+export async function decodeStaticResponse(response: Response): Promise<Response> {
+  if (!response.ok) throw new Error(`Static data request failed: ${response.status} ${response.url}`);
+  if (!isCompressedDataMode) return response;
+  if (!response.body) throw new Error(`Empty compressed response: ${response.url}`);
+  if (typeof DecompressionStream === 'undefined') {
+    throw new Error('This browser does not support gzip decompression');
+  }
+  return new Response(response.body.pipeThrough(new DecompressionStream('gzip')));
+}
+
+async function fetchStaticJson<T>(path: string): Promise<T> {
+  return (await decodeStaticResponse(await fetch(staticFileUrl(path)))).json() as Promise<T>;
+}
 
 export const getSpatialArrayUrl = (datasetId: string, gene: string, type: 'reference' | 'prediction') =>
-  dataUrl(`/data_root/${encodeURIComponent(datasetId)}/metric_visualization/${type}/${encodeURIComponent(gene)}.npy`);
+  staticFileUrl(`/data_root/${encodeURIComponent(datasetId)}/metric_visualization/${type}/${encodeURIComponent(gene)}.npy`);
 
 // Helper function for API calls
 async function fetchAPI<T>(endpoint: string): Promise<T> {
@@ -20,7 +36,7 @@ async function fetchAPI<T>(endpoint: string): Promise<T> {
 
 export const fetchDatasets = async (): Promise<DatasetMeta[]> => {
   if (isStaticDataMode) {
-    const datasets = await (await fetch(dataUrl('/site/datasets.json'))).json() as DatasetMeta[];
+    const datasets = await fetchStaticJson<DatasetMeta[]>('/site/datasets.json');
     return datasets.map(d => ({...d, heImageUrl: dataUrl(d.heImageUrl)}));
   }
   const datasets = await fetchAPI<DatasetMeta[]>('/api/datasets');
@@ -33,14 +49,14 @@ export const fetchDatasets = async (): Promise<DatasetMeta[]> => {
 
 export const fetchDatasetMetadata = async (datasetId: string) => {
   if (isStaticDataMode) {
-    return (await fetch(dataUrl(`/data_root/${encodeURIComponent(datasetId)}/dataset_metaINFO.json`))).json();
+    return fetchStaticJson(`/data_root/${encodeURIComponent(datasetId)}/dataset_metaINFO.json`);
   }
   return fetchAPI<any>(`/api/datasets/${datasetId}/metadata`);
 };
 
 export const fetchMetricOptions = async (datasetId: string, metric: string) => {
   if (isStaticDataMode) {
-    const data = await (await fetch(dataUrl(`/data_root/${encodeURIComponent(datasetId)}/metric_vis.json`))).json();
+    const data = await fetchStaticJson<Record<string, Record<string, string[]>>>(`/data_root/${encodeURIComponent(datasetId)}/metric_vis.json`);
     return Object.keys(data[metric] || {});
   }
   const data = await fetchAPI<Record<string, Record<string, string[]>>>(`/api/metric-vis/${datasetId}/options`);
@@ -53,7 +69,7 @@ export const fetchMetricOptions = async (datasetId: string, metric: string) => {
 
 export const fetchSimilarGenes = async (datasetId: string, metric: string, value: string) => {
   if (isStaticDataMode) {
-    const data = await (await fetch(dataUrl(`/data_root/${encodeURIComponent(datasetId)}/metric_vis.json`))).json();
+    const data = await fetchStaticJson<Record<string, Record<string, string[]>>>(`/data_root/${encodeURIComponent(datasetId)}/metric_vis.json`);
     const genes = data[metric]?.[value];
     if (!genes) throw new Error(`Metric value ${metric}/${value} is unavailable`);
     return genes as string[];
@@ -64,7 +80,7 @@ export const fetchSimilarGenes = async (datasetId: string, metric: string, value
 
 export const fetchGridRegions = async (datasetId: string, algorithm: string): Promise<GridRegion[]> => {
   if (isStaticDataMode) {
-    const data = await (await fetch(dataUrl(`/site/oos/${encodeURIComponent(datasetId)}/${encodeURIComponent(algorithm)}/regions.json`))).json();
+    const data = await fetchStaticJson<{regions: GridRegion[]}>(`/site/oos/${encodeURIComponent(datasetId)}/${encodeURIComponent(algorithm)}/regions.json`);
     return data.regions;
   }
   const data = await fetchAPI<{ regions: GridRegion[] }>(`/api/out-of-sample/${datasetId}/${algorithm}/regions`);
@@ -73,7 +89,7 @@ export const fetchGridRegions = async (datasetId: string, algorithm: string): Pr
 
 export const fetchRegionData = async (datasetId: string, algorithm: string, regionId: string): Promise<GeneMetric[]> => {
   if (isStaticDataMode) {
-    const data = await (await fetch(dataUrl(`/site/oos/${encodeURIComponent(datasetId)}/${encodeURIComponent(algorithm)}/region/${encodeURIComponent(regionId)}.json`))).json();
+    const data = await fetchStaticJson<{data: GeneMetric[]}>(`/site/oos/${encodeURIComponent(datasetId)}/${encodeURIComponent(algorithm)}/region/${encodeURIComponent(regionId)}.json`);
     return data.data;
   }
   const data = await fetchAPI<{
@@ -120,7 +136,7 @@ export const getSpatialImageUrl = (
 // New functions for different resolution prediction
 export const fetchSpotArrangements = async (datasetId: string, algorithm: string): Promise<string[]> => {
   if (isStaticDataMode) {
-    const manifest = await (await fetch(dataUrl(`/site/diff/${encodeURIComponent(datasetId)}/${encodeURIComponent(algorithm)}/manifest.json`))).json();
+    const manifest = await fetchStaticJson<{arrangements: string[]}>(`/site/diff/${encodeURIComponent(datasetId)}/${encodeURIComponent(algorithm)}/manifest.json`);
     return manifest.arrangements;
   }
   const data = await fetchAPI<{ arrangements: string[] }>(`/api/diff-res/${datasetId}/${algorithm}/arrangements`);
@@ -129,7 +145,7 @@ export const fetchSpotArrangements = async (datasetId: string, algorithm: string
 
 export const fetchResolutions = async (datasetId: string, algorithm: string, arrangement: string): Promise<string[]> => {
   if (isStaticDataMode) {
-    const manifest = await (await fetch(dataUrl(`/site/diff/${encodeURIComponent(datasetId)}/${encodeURIComponent(algorithm)}/manifest.json`))).json();
+    const manifest = await fetchStaticJson<{resolutions: Record<string, string[]>}>(`/site/diff/${encodeURIComponent(datasetId)}/${encodeURIComponent(algorithm)}/manifest.json`);
     return manifest.resolutions[arrangement] || [];
   }
   const data = await fetchAPI<{
@@ -140,7 +156,7 @@ export const fetchResolutions = async (datasetId: string, algorithm: string, arr
 
 export const fetchMetricsPlotData = async (datasetId: string, algorithm: string, metric: string) => {
   if (isStaticDataMode) {
-    return (await fetch(dataUrl(`/site/diff/${encodeURIComponent(datasetId)}/${encodeURIComponent(algorithm)}/plots/${encodeURIComponent(metric)}.json`))).json();
+    return fetchStaticJson(`/site/diff/${encodeURIComponent(datasetId)}/${encodeURIComponent(algorithm)}/plots/${encodeURIComponent(metric)}.json`);
   }
   return fetchAPI<any>(`/api/diff-res/${datasetId}/${algorithm}/${metric}/plot-data`);
 };
@@ -155,8 +171,10 @@ export const fetchReplicateData = async (
     const result: Record<string, GeneMetric[]> = {};
     await Promise.all(['rep1', 'rep2', 'rep3'].map(async rep => {
       const path = `/data_root/${encodeURIComponent(datasetId)}/prediction/${encodeURIComponent(algorithm)}/raw_resolution/${rep}/${encodeURIComponent(arrangement)}/${encodeURIComponent(resolution)}.csv`;
-      const response = await fetch(dataUrl(path));
-      result[rep] = response.ok ? d3.csvParse(await response.text(), d3.autoType) as unknown as GeneMetric[] : [];
+      const response = await fetch(staticFileUrl(path));
+      result[rep] = response.ok
+        ? d3.csvParse(await (await decodeStaticResponse(response)).text(), d3.autoType) as unknown as GeneMetric[]
+        : [];
     }));
     return result;
   }

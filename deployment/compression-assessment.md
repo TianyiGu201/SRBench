@@ -23,10 +23,10 @@ manifest-selected raw-resolution CSVs drive the remaining views.
 
 | Required file group | Current GB | Proposed GB | Method |
 | --- | ---: | ---: | --- |
-| 3,108 NPY arrays | 16.813 | 4.289 | gzip level 6, keep original NPY bytes after HTTP decoding |
+| 3,108 NPY arrays | 16.813 | 4.289 | gzip level 6, restore original NPY bytes in the browser |
 | 13 TIFF images | 9.527 | 4.520 | TIFF Deflate with horizontal predictor (`tiffcp -c zip:2:p6`) |
-| 14,470 CSV files | 1.148 | 0.550 | gzip level 6, transparently decoded by browser |
-| 3,128 JSON files | 0.439 | 0.108 | gzip level 6, transparently decoded by browser |
+| 14,470 CSV files | 1.148 | 0.550 | gzip level 6, explicitly decoded by browser |
+| 3,128 JSON files | 0.439 | 0.108 | gzip level 6, explicitly decoded by browser |
 | 13 JPEG previews | 0.003 | 0.003 | Keep as-is |
 | **Total** | **27.930** | **9.470** | **66.5% below the baseline upload size** |
 
@@ -38,22 +38,24 @@ must check all 13 images and preserve required metadata. SHA-256 duplicate
 scanning of NPY, CSV, and JSON found only 0.049 GB of duplicate copies, too
 little to justify a special cross-object deduplication scheme.
 
-The compression plan requires placing gzipped NPY, CSV, and JSON **bytes** at
-their existing R2 keys, and setting each object's HTTP `Content-Encoding` to
-`gzip` with an appropriate `Content-Type`. Standard browser `fetch()` decoding
-then returns the original bytes to the existing frontend; URLs and parsers do
-not need to change. The TIFFs remain ordinary lossless TIFF files at the same
-keys. Merely enabling CDN/network compression does not reduce R2 storage.
+The compression plan places gzipped NPY, CSV, and JSON at distinct R2 keys
+ending in `.gz`, without an HTTP `Content-Encoding` header. This avoids a
+Cloudflare/R2 behavior reported by rclone in which gzip-encoded objects may be
+decompressed during transfer. With `VITE_DATA_COMPRESSION=gzip`, the frontend
+uses the browser's `DecompressionStream` to recover the original NPY/CSV/JSON
+bytes. The TIFFs remain ordinary lossless TIFF files at the same keys. Merely
+enabling CDN/network compression does not reduce R2 storage.
 
 ## Deployment checks and limits
 
 1. Build a separate staged payload; keep the current `web_data` untouched.
 2. Validate gzip round trips against the source and all TIFF pixels/important
    tags. Compare the staged inventory with the static manifest paths.
-3. Upload only the staged bytes to a fresh bucket, set `Content-Encoding: gzip`
-   for NPY/CSV/JSON, and compare remote sizes with the staged files. Do not
-   put both original and compressed copies in the same bucket.
-4. Confirm public `Content-Encoding`, `Content-Type`, and CORS headers. Run the
+3. Upload only the staged bytes to a fresh bucket and compare remote sizes
+   with the staged files. Do not put both original and compressed copies in
+   the same bucket; do not set `Content-Encoding: gzip` on these `.gz` objects.
+4. Confirm public `Content-Type` and CORS headers and the absence of
+   `Content-Encoding: gzip` for `.gz` objects. Run the
    browser smoke flow against the real R2 URL: catalog, NPY image, OOS view,
    raw-resolution view, CSV download, and TIFF download.
 

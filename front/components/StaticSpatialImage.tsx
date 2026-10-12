@@ -1,14 +1,14 @@
 import React, {useEffect, useRef, useState} from 'react';
 import colorMap from '../assets/rdbu-r.json';
-import {getSpatialArrayUrl} from '../services/api';
+import {decodeStaticResponse, getSpatialArrayUrl} from '../services/api';
 
 type GeneArray = {rows: number; cols: number; values: Float64Array};
 const arrayCache = new Map<string, Promise<GeneArray>>();
 
 function loadNpy(url: string): Promise<GeneArray> {
   if (!arrayCache.has(url)) {
-    arrayCache.set(url, fetch(url).then(async response => {
-      if (!response.ok) throw new Error(`Array request failed: ${response.status}`);
+    arrayCache.set(url, fetch(url).then(async rawResponse => {
+      const response = await decodeStaticResponse(rawResponse);
       const buffer = await response.arrayBuffer();
       const view = new DataView(buffer);
       if (view.getUint8(0) !== 0x93 || new TextDecoder().decode(buffer.slice(1, 6)) !== 'NUMPY') {
