@@ -1,0 +1,9 @@
+{
+  "module": "fig3_summary",
+  "function": "run_overall_summary",
+  "kwargs": {
+    "input_dir": {"__path__": "../RESULTS/source_tables/classified"},
+    "out_summary_csv": {"__path__": "../RESULTS/gene_effects/gene_property_effects.csv"},
+    "out_pdf": {"__path__": "../RESULTS/gene_effects/gene_property_effects.pdf"}
+  }
+}

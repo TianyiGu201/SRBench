@@ -1,0 +1,10 @@
+{
+  "method_datasets": {
+    "XFuse": ["Xe_hsa_breast_c"],
+    "TESLA": ["Xe_hsa_breast_c"],
+    "iSTAR": ["Xe_hsa_breast_c"],
+    "scstGCN": ["Xe_hsa_breast_c"],
+    "SuperST_t": ["Xe_hsa_breast_c"],
+    "SuperST_t_g": ["Xe_hsa_breast_c"]
+  }
+}

@@ -1,0 +1,5 @@
+jupyterlab
+ipykernel
+nbformat
+nbclient
+# Platform/model packages are installed in their own environments; see docs/ENVIRONMENTS.md.

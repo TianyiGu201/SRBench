@@ -1,0 +1,7 @@
+-r requirements-analysis.txt
+h5py>=3.10
+pyarrow>=14
+tifffile
+tqdm>=4.66
+torch>=2.1
+opencv-python-headless

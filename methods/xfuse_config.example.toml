@@ -1,0 +1,62 @@
+[xfuse]
+# This section defines modeling options. It can usually be left as-is.
+network_depth = 6
+network_width = 16
+gene_regex = "^(?!RPS|RPL|MT-).*" # Regex matching genes to include in the model. This pattern excludes uppercase human RPS/RPL/MT- symbols.
+min_counts = 1 # Exclude all genes with fewer reads than this value.
+
+[settings]
+cache_data = true
+data_workers = 8 # Number of worker processes for data loading. If set to zero, run data loading in main thread.
+
+[expansion_strategy]
+# This section contains configuration options for the metagene expansion strategy.
+type = "DropAndSplit" # Available choices: Extra, DropAndSplit
+purge_interval = 1000 # Metagene purging interval (epochs)
+
+[expansion_strategy.Extra]
+num_metagenes = 4
+anneal_to = 1
+anneal_epochs = 10000
+
+[expansion_strategy.DropAndSplit]
+max_metagenes = 50
+
+[optimization]
+# This section defines options used during training. It may be necessary to decrease the batch or patch size if running out of memory during training.
+batch_size = 4
+epochs = 20000
+learning_rate = 0.0003
+patch_size = 768 # Size of training patches. Set to '-1' to use as large patches as possible.
+
+[analyses]
+# This section defines which analyses to run. Each analysis has its own subtable with configuration options. Remove the table to stop the analysis from being run.
+
+[analyses.analysis-gene_maps]
+# Constructs a map of imputed expression for each gene in the dataset.
+type = "gene_maps"
+
+[analyses.analysis-gene_maps.options]
+gene_regex = ".*"
+num_samples = 50
+genes_per_batch = 10
+predict_mean = true
+normalize = false
+mask_tissue = true
+scale = 0.713
+writer = "tensor"
+
+
+[slides]
+# This section defines the slides to use in the experiment. Covariates are specified in the "covariates" table. Slide-specific options can be specified in the "options" table.
+
+[slides.section0]
+data = "data.h5"
+
+[slides.section0.covariates]
+section = "0"
+
+[slides.section0.options]
+min_counts = 100
+always_filter = []
+always_keep = [1]

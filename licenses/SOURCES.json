@@ -1,0 +1,22 @@
+[
+  {
+    "file": "iSTAR-GPL-3.0.txt",
+    "source": "https://raw.githubusercontent.com/daviddaiweizhang/istar/master/LICENSE",
+    "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+  },
+  {
+    "file": "scstGCN-GPL-3.0.txt",
+    "source": "https://raw.githubusercontent.com/wenwenmin/scstGCN/main/LICENSE",
+    "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+  },
+  {
+    "file": "XFuse-MIT.txt",
+    "source": "https://raw.githubusercontent.com/ludvb/xfuse/master/LICENSE",
+    "sha256": "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1"
+  },
+  {
+    "file": "TESLA-MIT.txt",
+    "source": "https://raw.githubusercontent.com/jianhuupenn/TESLA/main/LICENSE",
+    "sha256": "2ec73999de41efe441f20b6a70578c2fdfad50fbed44df10ad6f60f917e96f7c"
+  }
+]

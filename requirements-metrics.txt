@@ -1,0 +1,5 @@
+# Dependencies for direct execution of pipeline/metrics/*_eval.py.
+-r requirements-analysis.txt
+scanpy>=1.9
+pyarrow>=14
+h5py>=3.10

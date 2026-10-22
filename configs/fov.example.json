@@ -1,0 +1,9 @@
+{
+  "method": "iSTAR",
+  "fov_dirs": {
+    "500": "../DATA/fov/iSTAR/FOV500",
+    "1000": "../DATA/fov/iSTAR/FOV1000",
+    "1500": "../DATA/fov/iSTAR/FOV1500"
+  },
+  "he_image": "../DATA/fov/he-raw.tiff"
+}

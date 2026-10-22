@@ -1,0 +1,155 @@
+{
+  "project_root": "..",
+  "log_dir": "RUN_LOGS",
+  "jobs": [
+    {
+      "id": "iSTAR_dataset_rep1",
+      "method": "iSTAR",
+      "cwd": "DEPENDENCIES/istar",
+      "command": [
+        "conda",
+        "run",
+        "--no-capture-output",
+        "-n",
+        "istar",
+        "bash",
+        "{package}/methods/iSTAR_run.sh",
+        "{root}/DATA/iSTAR/rep1"
+      ],
+      "inputs": [
+        "DATA/iSTAR/rep1/he-raw.tiff",
+        "DATA/iSTAR/rep1/cnts.tsv",
+        "DATA/iSTAR/rep1/locs-raw.tsv",
+        "DATA/iSTAR/rep1/radius-raw.txt",
+        "DATA/iSTAR/rep1/pixel-size-raw.txt",
+        "DATA/iSTAR/rep1/gene-names.txt"
+      ],
+      "outputs": [
+        "DATA/iSTAR/rep1/cnts-super"
+      ]
+    },
+    {
+      "id": "scstGCN_dataset_rep1",
+      "method": "scstGCN",
+      "cwd": "DEPENDENCIES/scstGCN",
+      "command": [
+        "conda",
+        "run",
+        "--no-capture-output",
+        "-n",
+        "scstgcn",
+        "python",
+        "{package}/methods/scstGCN_run.py",
+        "{root}/DATA/scstGCN/rep1",
+        "--method-dir",
+        "{root}/DEPENDENCIES/scstGCN"
+      ],
+      "inputs": [
+        "DATA/scstGCN/rep1/he-raw.tiff",
+        "DATA/scstGCN/rep1/cnts.tsv",
+        "DATA/scstGCN/rep1/locs-raw.tsv",
+        "DATA/scstGCN/rep1/gene-names.txt",
+        "CHECKPOINTS/UNI/pytorch_model.bin"
+      ],
+      "outputs": [
+        "DATA/scstGCN/rep1/cnts-super"
+      ],
+      "env": {
+        "UNI_CHECKPOINT": "{root}/CHECKPOINTS/UNI/pytorch_model.bin"
+      }
+    },
+    {
+      "id": "TESLA_dataset_rep1",
+      "method": "TESLA",
+      "cwd": "DEPENDENCIES/TESLA",
+      "command": [
+        "conda",
+        "run",
+        "--no-capture-output",
+        "-n",
+        "tesla",
+        "python",
+        "{package}/methods/TESLA_run.py",
+        "{root}/DATA/TESLA/rep1",
+        "{root}/DATA/TESLA/rep1/he-raw.tiff",
+        "{root}/DATA/TESLA/rep1",
+        "5",
+        "{root}/DATA/TESLA/rep1/gene-names.txt"
+      ],
+      "inputs": [
+        "DATA/TESLA/rep1/filtered_feature_bc_matrix.h5",
+        "DATA/TESLA/rep1/spatial/tissue_positions_list_with_header.csv",
+        "DATA/TESLA/rep1/he-raw.tiff",
+        "DATA/TESLA/rep1/gene-names.txt"
+      ],
+      "outputs": [
+        "DATA/TESLA/rep1/tesla_enhanced"
+      ]
+    },
+    {
+      "id": "XFuse_dataset_rep1",
+      "method": "XFuse",
+      "cwd": "DATA/XFuse/rep1",
+      "steps": [
+        [
+          "conda",
+          "run",
+          "--no-capture-output",
+          "-n",
+          "xfuse",
+          "bash",
+          "{package}/methods/XFuse_run.sh",
+          "{root}/DATA/XFuse/rep1/config.toml",
+          "{root}/DATA/XFuse/rep1/my-run"
+        ],
+        [
+          "conda",
+          "run",
+          "--no-capture-output",
+          "-n",
+          "xfuse",
+          "python",
+          "{package}/methods/xfuse_export.py",
+          "--input-dir",
+          "{root}/DATA/XFuse/rep1/my-run/analyses/final/analysis-gene_maps/section0"
+        ]
+      ],
+      "inputs": [
+        "DATA/XFuse/rep1/config.toml",
+        "DATA/XFuse/rep1/data.h5"
+      ],
+      "outputs": [
+        "DATA/XFuse/rep1/my-run/analyses/final/analysis-gene_maps/section0"
+      ]
+    },
+    {
+      "id": "SuperST_dataset_rep1",
+      "method": "SuperST",
+      "cwd": "DEPENDENCIES/SuperST",
+      "command": [
+        "conda",
+        "run",
+        "--no-capture-output",
+        "-n",
+        "superst",
+        "python",
+        "{package}/methods/SuperST_run.py",
+        "{root}/DATA/SuperST/rep1",
+        "1024",
+        "--method-dir",
+        "{root}/DEPENDENCIES/SuperST"
+      ],
+      "inputs": [
+        "DATA/SuperST/rep1/filtered_feature_bc_matrix.h5",
+        "DATA/SuperST/rep1/spatial/scalefactors_json.json",
+        "DATA/SuperST/rep1/spatial/tissue_positions_list.csv",
+        "DATA/SuperST/rep1/spatial/tissue_hires_image.png",
+        "DATA/SuperST/rep1/gene-names.txt"
+      ],
+      "outputs": [
+        "DATA/SuperST/rep1/SuperST_enhanced_t",
+        "DATA/SuperST/rep1/SuperST_enhanced_t_g"
+      ]
+    }
+  ]
+}
